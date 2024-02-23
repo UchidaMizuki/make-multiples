@@ -7,9 +7,9 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Html exposing (Html)
+import Maybe.Extra
 import Model exposing (Model)
 import Msg exposing (Msg)
-import Utils
 
 
 view : Model -> Html Msg
@@ -46,7 +46,7 @@ viewGameOpponentHand model =
         , Element.spacing <| boxZoom model model.view.gameHandSpacing
         ]
     <|
-        List.map (\( rank, cards ) -> viewGameCard model CardOpponentHand rank cards) <|
+        List.map (\( rank, cards ) -> viewGameCard model OpponentHandCard (Just rank) cards) <|
             Dict.toList model.opponentHand
 
 
@@ -59,12 +59,9 @@ viewGameField model =
         , Element.centerY
         , Element.spacing <| boxZoom model model.view.gameHandSpacing
         ]
-        [ viewGameCard model CardField model.field.first 1
-        , viewGameCardText model "≤"
-        , viewGameCard model CardField model.field.second 1
-        , viewGameCardText model "≤"
-        , viewGameCard model CardField model.field.third 1
-        ]
+    <|
+        List.intersperse (viewGameCardText model "≤") <|
+            List.indexedMap (\index maybeRank -> viewGameCard model (FieldCard index) maybeRank 1) model.field
 
 
 viewGameInfo : Model -> Element Msg
@@ -73,8 +70,10 @@ viewGameInfo model =
         [ Element.width Element.fill
         , Element.height <| Element.px <| boxZoom model model.view.gameInfoHeight
         , Element.centerX
-        , Font.color <| Element.fromRgb255 model.view.color4
-        , Font.size <| boxZoom model model.view.gameInfoFontSize
+        , Element.centerY
+        , Element.spacing <| boxZoom model model.view.gameHandSpacing
+        , Font.size <| boxZoom model model.view.gameCardFontSize
+        , Font.color <| Element.fromRgb255 model.view.color5
         ]
     <|
         Element.el
@@ -94,12 +93,9 @@ viewGameSelectedHand model =
         , Element.centerY
         , Element.spacing <| boxZoom model model.view.gameHandSpacing
         ]
-        [ viewGameCard model (CardSelectedHand 1) (Utils.maybeIntToInt model.selectedHand.first) 1
-        , viewGameCardText model "+"
-        , viewGameCard model (CardSelectedHand 2) (Utils.maybeIntToInt model.selectedHand.second) 1
-        , viewGameCardText model "+"
-        , viewGameCard model (CardSelectedHand 3) (Utils.maybeIntToInt model.selectedHand.third) 1
-        ]
+    <|
+        List.intersperse (viewGameCardText model "+") <|
+            List.indexedMap (\index maybeRank -> viewGameCard model (SelectedHandCard index) maybeRank 1) model.selectedHand
 
 
 viewGamePlayerHand : Model -> Element Msg
@@ -112,7 +108,7 @@ viewGamePlayerHand model =
         , Element.spacing <| boxZoom model model.view.gameHandSpacing
         ]
     <|
-        List.map (\( rank, cards ) -> viewGameCard model CardPlayerHand rank cards) <|
+        List.map (\( rank, cards ) -> viewGameCard model PlayerHandCard (Just rank) cards) <|
             Dict.toList model.playerHand
 
 
@@ -126,53 +122,132 @@ viewGamePlayerButton model =
         , Font.size <| boxZoom model model.view.gamePlayerButtonFontSize
         , Font.color <| Element.fromRgb255 model.view.color1
         ]
-        [ Element.el
+        [ Input.button
             [ Element.width <| Element.px <| boxZoom model model.view.gamePlayerButtonWidth
             , Element.height Element.fill
             , Element.alignLeft
             , Border.rounded <| boxZoom model model.view.gamePlayerButtonRounded
             , Background.color <| Element.fromRgb255 model.view.color4
             ]
-          <|
-            Element.el
-                [ Element.centerX
-                , Element.centerY
-                ]
-            <|
-                Element.text "Draw"
-        , Element.el
+            { onPress =
+                if model.turn /= Model.Player then
+                    Nothing
+
+                else
+                    Just Msg.PressPass
+            , label =
+                Element.el
+                    [ Element.centerX
+                    , Element.centerY
+                    ]
+                <|
+                    Element.text "Pass"
+            }
+        , Input.button
             [ Element.width <| Element.px <| boxZoom model model.view.gamePlayerButtonWidth
             , Element.height Element.fill
             , Element.alignRight
             , Border.rounded <| boxZoom model model.view.gamePlayerButtonRounded
-            , Background.color <| Element.fromRgb255 model.view.color4
+            , Background.color <| Element.fromRgb255 model.view.color5
             ]
-          <|
-            Element.el
-                [ Element.centerX
-                , Element.centerY
-                ]
-            <|
-                Element.text "Play"
+            { onPress =
+                if model.turn /= Model.Player then
+                    Nothing
+
+                else
+                    Just Msg.PressPlay
+            , label =
+                Element.el
+                    [ Element.centerX
+                    , Element.centerY
+                    ]
+                <|
+                    Element.text "Play"
+            }
         ]
 
 
-viewGameCard : Model -> Card -> Int -> Int -> Element Msg
-viewGameCard model card rank cards =
+viewGameCard : Model -> GameCard -> Maybe Int -> Int -> Element Msg
+viewGameCard model gameCard maybeRank cards =
     let
         labelRank =
-            if rank <= 0 || cards == 0 then
-                ""
+            case maybeRank of
+                Just rank ->
+                    if cards <= 0 then
+                        ""
 
-            else
-                String.fromInt rank
+                    else
+                        String.fromInt rank
+
+                Nothing ->
+                    ""
 
         labelNumber =
-            if rank <= 0 || cards <= 1 then
+            if Maybe.Extra.isNothing maybeRank || cards <= 1 then
                 ""
 
             else
                 "× " ++ String.fromInt cards
+
+        backgroundColor =
+            if Maybe.Extra.isNothing maybeRank || cards == 0 then
+                model.view.color3
+
+            else
+                case gameCard of
+                    FieldCard index ->
+                        if index == model.fieldIndex then
+                            model.view.color1
+
+                        else
+                            model.view.color3
+
+                    PlayerHandCard ->
+                        if model.turn == Model.Player then
+                            model.view.color1
+
+                        else
+                            model.view.color3
+
+                    OpponentHandCard ->
+                        if model.turn == Model.Opponent then
+                            model.view.color1
+
+                        else
+                            model.view.color3
+
+                    _ ->
+                        model.view.color1
+
+        borderColor =
+            case gameCard of
+                FieldCard index ->
+                    if index == model.fieldIndex then
+                        model.view.color5
+
+                    else
+                        model.view.color3
+
+                SelectedHandCard _ ->
+                    model.view.color5
+
+                _ ->
+                    model.view.color3
+
+        fontColor =
+            model.view.color4
+
+        attributes =
+            [ Background.color <| Element.fromRgb255 backgroundColor
+            , Element.width <| Element.px <| boxZoom model model.view.gameCardWidth
+            , Element.height <| Element.px <| boxZoom model model.view.gameCardHeight
+            , Border.width <| boxZoom model model.view.gameCardBorderWidth
+            , Border.color <| Element.fromRgb255 borderColor
+            , Border.rounded <| boxZoom model model.view.gameCardRounded
+            , Element.centerX
+            , Element.centerY
+            , Font.color <| Element.fromRgb255 fontColor
+            ]
 
         label =
             Element.column
@@ -201,53 +276,27 @@ viewGameCard model card rank cards =
                     Element.el [ Element.centerY ] <|
                         Element.text labelNumber
                 ]
-
-        backgroundColor =
-            if rank <= 0 || cards == 0 then
-                model.view.color3
-
-            else
-                model.view.color1
-
-        fontColor =
-            if rank <= 0 || cards == 0 then
-                model.view.color1
-
-            else
-                model.view.color4
-
-        attributes =
-            [ Background.color <| Element.fromRgb255 backgroundColor
-            , Element.width <| Element.px <| boxZoom model model.view.gameCardWidth
-            , Element.height <| Element.px <| boxZoom model model.view.gameCardHeight
-            , Border.width <| boxZoom model model.view.gameCardBorderWidth
-            , Border.color <| Element.fromRgb255 model.view.color3
-            , Border.rounded <| boxZoom model model.view.gameCardRounded
-            , Element.centerX
-            , Element.centerY
-            , Font.color <| Element.fromRgb255 fontColor
-            ]
     in
-    case card of
-        CardPlayerHand ->
+    case gameCard of
+        PlayerHandCard ->
             Input.button attributes
                 { onPress =
-                    if cards <= 0 then
+                    if model.turn /= Model.Player || cards <= 0 || List.all Maybe.Extra.isJust model.selectedHand then
                         Nothing
 
                     else
-                        Just (Msg.SelectCard rank)
+                        Maybe.map Msg.SelectCard maybeRank
                 , label = label
                 }
 
-        CardSelectedHand index ->
+        SelectedHandCard index ->
             Input.button attributes
                 { onPress =
-                    if rank <= 0 then
+                    if model.turn /= Model.Player then
                         Nothing
 
                     else
-                        Just (Msg.DeselectCard index rank)
+                        Maybe.map (Msg.DeselectCard index) maybeRank
                 , label = label
                 }
 
@@ -255,11 +304,11 @@ viewGameCard model card rank cards =
             Element.el attributes label
 
 
-type Card
-    = CardField
-    | CardPlayerHand
-    | CardOpponentHand
-    | CardSelectedHand Int
+type GameCard
+    = FieldCard Int
+    | PlayerHandCard
+    | OpponentHandCard
+    | SelectedHandCard Int
 
 
 viewGameCardText : Model -> String -> Element Msg

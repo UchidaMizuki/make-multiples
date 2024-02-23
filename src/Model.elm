@@ -7,36 +7,32 @@ import List.Nonempty exposing (Nonempty)
 
 type alias Model =
     { field : Field
+    , fieldLength : Int
+    , fieldIndex : Int
     , playerHand : Hand
     , opponentHand : Hand
-    , selectedHand : SelectedHand
+    , selectedHand : Field
     , turn : Turn
+    , turnOpponentSleep : Float
     , ranks : Nonempty Int
-    , cards : Int
+    , cardsPlayerInit : Int
+    , cardsOpponentInit : Int
+    , cardsDraw : Int
     , view : View
     }
 
 
 type alias Field =
-    { first : Int
-    , second : Int
-    , third : Int
-    }
+    List (Maybe Int)
 
 
 type alias Hand =
     Dict Int Int
 
 
-type alias SelectedHand =
-    { first : Maybe Int
-    , second : Maybe Int
-    , third : Maybe Int
-    }
-
-
-type alias Turn =
-    ()
+type Turn
+    = Player
+    | Opponent
 
 
 type alias View =
@@ -48,7 +44,6 @@ type alias View =
     , gameFontFamily : Font.Font
     , gameOpponentHandHeight : Float
     , gameInfoHeight : Float
-    , gameInfoFontSize : Float
     , gameFieldHeight : Float
     , gameSelectedHandHeight : Float
     , gamePlayerHandHeight : Float
@@ -67,6 +62,7 @@ type alias View =
     , color2 : Color
     , color3 : Color
     , color4 : Color
+    , color5 : Color
     }
 
 

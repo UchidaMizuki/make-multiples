@@ -25,40 +25,75 @@ init _ =
 
 initModel : Model
 initModel =
-    { field = { first = 0, second = 0, third = 0 }
+    { field = List.repeat initModelFieldLength Nothing
+    , fieldLength = initModelFieldLength
+    , fieldIndex = 0
     , playerHand = Dict.empty
     , opponentHand = Dict.empty
-    , selectedHand = { first = Nothing, second = Nothing, third = Nothing }
-    , turn = ()
-    , ranks = Nonempty 1 <| List.range 2 9
-    , cards = 9
+    , selectedHand = List.repeat initModelFieldLength Nothing
+    , turn = Model.Player
+    , turnOpponentSleep = 1000
+    , ranks = initModelRanks
+    , cardsPlayerInit = 7
+    , cardsOpponentInit = 5
+    , cardsDraw = 1
     , view = initModelView
     }
 
 
+initModelFieldLength : Int
+initModelFieldLength =
+    3
+
+
+initModelRanks : Nonempty Int
+initModelRanks =
+    Nonempty 1 <| List.range 2 initModelRanksMax
+
+
+initModelRanksMax : Int
+initModelRanksMax =
+    5
+
+
 
 -- https://colorhunt.co/palette/f4f4f2e8e8e8bbbfca495464
--- https://colorate.azurewebsites.net
+-- https://colorhunt.co/palette/d04848f3b95ffde7676895d2
 
 
 initModelView : Model.View
 initModelView =
+    let
+        lengthInitModelRanks =
+            max (initModelFieldLength * 2 - 1) (Nonempty.length initModelRanks)
+
+        boxPadding =
+            0.5
+
+        boxSpacing =
+            0.5
+
+        boxRounded =
+            0.5
+
+        boxWidth =
+            toFloat lengthInitModelRanks * 2 + toFloat (lengthInitModelRanks - 1) * boxSpacing + boxPadding * 2
+    in
     { boxZoom = 1
-    , boxWidth = 23
-    , boxPadding = 0.5
-    , boxSpacing = 0.5
-    , boxRounded = 0.5
+    , boxWidth = boxWidth
+    , boxPadding = boxPadding
+    , boxSpacing = boxSpacing
+    , boxRounded = boxRounded
     , gameFontFamily = Font.external { name = "Poppins", url = "https://fonts.googleapis.com/css?family=Poppins" }
     , gameOpponentHandHeight = 3
-    , gameInfoHeight = 1.5
-    , gameInfoFontSize = 1
+    , gameInfoHeight = 2
     , gameFieldHeight = 3
     , gameSelectedHandHeight = 3
     , gamePlayerHandHeight = 3
-    , gamePlayerButtonWidth = 9.5
-    , gamePlayerButtonHeight = 1.5
+    , gamePlayerButtonWidth = boxWidth / 2 - 1 - boxPadding - boxSpacing
+    , gamePlayerButtonHeight = 2
     , gamePlayerButtonRounded = 0.25
-    , gamePlayerButtonFontSize = 0.75
+    , gamePlayerButtonFontSize = 1
     , gameHandSpacing = 0.5
     , gameCardBorderWidth = 0.05
     , gameCardWidth = 2
@@ -66,51 +101,32 @@ initModelView =
     , gameCardRounded = 0.25
     , gameCardFontSize = 1
     , gameCardNumberFontSize = 0.625
-    , color1 = colorWhite
-    , color2 = colorGray
-    , color3 = colorPaleNavy
-    , color4 = colorGrayishBlue
+    , color1 = { red = 244, green = 244, blue = 242, alpha = 1 }
+    , color2 = { red = 232, green = 232, blue = 232, alpha = 1 }
+    , color3 = { red = 187, green = 191, blue = 202, alpha = 1 }
+    , color4 = { red = 73, green = 84, blue = 100, alpha = 1 }
+    , color5 = { red = 208, green = 72, blue = 72, alpha = 1 } 
     }
-
-
-colorWhite : Model.Color
-colorWhite =
-    { red = 244, green = 244, blue = 242, alpha = 1 }
-
-
-colorGray : Model.Color
-colorGray =
-    { red = 232, green = 232, blue = 232, alpha = 1 }
-
-
-colorPaleNavy : Model.Color
-colorPaleNavy =
-    { red = 187, green = 191, blue = 202, alpha = 1 }
-
-
-colorGrayishBlue : Model.Color
-colorGrayishBlue =
-    { red = 73, green = 84, blue = 100, alpha = 1 }
 
 
 initSetField : Model -> Cmd Msg
 initSetField model =
     Nonempty.sample model.ranks
-        |> Random.list 3
+        |> Random.list 1
         |> Random.generate Msg.SetField
 
 
 initDrawCardsPlayer : Model -> Cmd Msg
 initDrawCardsPlayer model =
     Nonempty.sample model.ranks
-        |> Random.list model.cards
+        |> Random.list model.cardsPlayerInit
         |> Random.generate Msg.DrawCardsPlayer
 
 
 initDrawCardsOpponent : Model -> Cmd Msg
 initDrawCardsOpponent model =
     Nonempty.sample model.ranks
-        |> Random.list model.cards
+        |> Random.list model.cardsOpponentInit
         |> Random.generate Msg.DrawCardsOpponent
 
 

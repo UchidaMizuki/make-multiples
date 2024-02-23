@@ -39,11 +39,26 @@ clearHand hand =
             (\_ number -> number > 0)
 
 
-maybeIntToInt : Maybe Int -> Int
-maybeIntToInt maybeInt =
-    case maybeInt of
-        Just int ->
-            int
+containHand : Model.Hand -> Model.Hand -> Bool
+containHand hand1 hand2 =
+    Dict.merge
+        (\_ _ result -> result)
+        (\_ a b result -> a >= b && result)
+        (\_ _ result -> result)
+        hand1
+        hand2
+        True
 
-        Nothing ->
-            0
+
+lengthHand : Model.Hand -> Int
+lengthHand hand =
+    Dict.values hand
+        |> List.sum
+
+
+sumHand : Model.Hand -> Int
+sumHand hand =
+    Dict.foldl
+        (\rank number sum -> rank * number + sum)
+        0
+        hand

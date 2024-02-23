@@ -8,3 +8,7 @@ type Msg
     | DrawCardsOpponent (List Int)
     | SelectCard Int
     | DeselectCard Int Int
+    | PressPass
+    | PressPlay
+    | TurnOpponent
+    | PlayCardsOpponent (Maybe (List Int))

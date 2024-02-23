@@ -1,9 +1,15 @@
 module Update exposing (..)
 
+import Dict
 import List
+import List.Extra
+import List.Nonempty as Nonempty exposing (Nonempty(..))
+import Maybe.Extra
 import Model exposing (Model)
 import Msg exposing (Msg(..))
-import Tuple exposing (second)
+import Process
+import Random
+import Task
 import Utils
 
 
@@ -13,20 +19,32 @@ update msg model =
         Resize w h ->
             updateResize model w h
 
-        SetField ranks ->
-            updateSetField model ranks
+        SetField cards ->
+            updateSetField model cards
 
-        DrawCardsPlayer ranks ->
-            updateDrawCardsPlayer model ranks
+        DrawCardsPlayer cards ->
+            updateDrawCardsPlayer model cards
 
-        DrawCardsOpponent ranks ->
-            updateDrawCardsOpponent model ranks
+        DrawCardsOpponent cards ->
+            updateDrawCardsOpponent model cards
 
         SelectCard rank ->
             updateSelectCard model rank
 
         DeselectCard index rank ->
             updateDeselectCard model index rank
+
+        PressPass ->
+            updatePressPass model
+
+        PressPlay ->
+            updatePressPlay model
+
+        TurnOpponent ->
+            updateTurnOpponent model
+
+        PlayCardsOpponent maybeCards ->
+            updatePlayCardsOpponent model maybeCards
 
 
 updateResize : Model -> Float -> Float -> ( Model, Cmd Msg )
@@ -61,30 +79,38 @@ updateResize model w h =
 
 
 updateSetField : Model -> List Int -> ( Model, Cmd Msg )
-updateSetField model ranks =
-    case List.sort ranks of
-        [ first, second, third ] ->
-            ( { model | field = { first = first, second = second, third = third } }, Cmd.none )
+updateSetField model cards =
+    let
+        lengthCards =
+            List.length cards
 
-        _ ->
-            ( model, Cmd.none )
+        field =
+            List.map Just (List.sort cards)
+                ++ List.repeat (model.fieldLength - lengthCards) Nothing
+    in
+    ( { model
+        | field = field
+        , fieldIndex = fieldIndex cards
+      }
+    , Cmd.none
+    )
 
 
 updateDrawCardsPlayer : Model -> List Int -> ( Model, Cmd Msg )
-updateDrawCardsPlayer model ranks =
+updateDrawCardsPlayer model cards =
     let
         playerHand =
-            ranks
+            cards
                 |> List.foldl Utils.addHand model.playerHand
     in
     ( { model | playerHand = playerHand }, Cmd.none )
 
 
 updateDrawCardsOpponent : Model -> List Int -> ( Model, Cmd Msg )
-updateDrawCardsOpponent model ranks =
+updateDrawCardsOpponent model cards =
     let
         opponentHand =
-            ranks
+            cards
                 |> List.foldl Utils.addHand model.opponentHand
     in
     ( { model | opponentHand = opponentHand }, Cmd.none )
@@ -93,92 +119,251 @@ updateDrawCardsOpponent model ranks =
 updateSelectCard : Model -> Int -> ( Model, Cmd Msg )
 updateSelectCard model rank =
     let
-        selectedHand =
-            model.selectedHand
-
-        first =
-            selectedHand.first
-
-        second =
-            selectedHand.second
-
-        third =
-            selectedHand.third
-
         playerHand =
             Utils.takeHand rank model.playerHand
+
+        selectedHand =
+            case List.Extra.findIndex Maybe.Extra.isNothing model.selectedHand of
+                Just index ->
+                    List.Extra.setAt index (Just rank) model.selectedHand
+
+                Nothing ->
+                    model.selectedHand
     in
-    case ( first, second, third ) of
-        ( Nothing, _, _ ) ->
-            ( { model
-                | playerHand = playerHand
-                , selectedHand = { selectedHand | first = Just rank }
-              }
-            , Cmd.none
-            )
-
-        ( _, Nothing, _ ) ->
-            ( { model
-                | playerHand = playerHand
-                , selectedHand = { selectedHand | second = Just rank }
-              }
-            , Cmd.none
-            )
-
-        ( _, _, Nothing ) ->
-            ( { model
-                | playerHand = playerHand
-                , selectedHand = { selectedHand | third = Just rank }
-              }
-            , Cmd.none
-            )
-
-        _ ->
-            ( model, Cmd.none )
+    ( { model
+        | playerHand = playerHand
+        , selectedHand = selectedHand
+      }
+    , Cmd.none
+    )
 
 
 updateDeselectCard : Model -> Int -> Int -> ( Model, Cmd Msg )
 updateDeselectCard model index rank =
     let
-        selectedHand =
-            model.selectedHand
-
-        first =
-            selectedHand.first
-
-        second =
-            selectedHand.second
-
-        third =
-            selectedHand.third
-
         playerHand =
             Utils.addHand rank model.playerHand
+
+        selectedHand =
+            List.Extra.setAt index Nothing model.selectedHand
     in
-    case index of
-        1 ->
-            ( { model
-                | playerHand = playerHand
-                , selectedHand = { selectedHand | first = Nothing }
-              }
-            , Cmd.none
-            )
+    ( { model
+        | playerHand = playerHand
+        , selectedHand = selectedHand
+      }
+    , Cmd.none
+    )
 
-        2 ->
-            ( { model
-                | playerHand = playerHand
-                , selectedHand = { selectedHand | second = Nothing }
-              }
-            , Cmd.none
-            )
 
-        3 ->
-            ( { model
-                | playerHand = playerHand
-                , selectedHand = { selectedHand | third = Nothing }
-              }
-            , Cmd.none
+updatePressPass : Model -> ( Model, Cmd Msg )
+updatePressPass model =
+    let
+        playerHand =
+            model.selectedHand
+                |> List.filterMap identity
+                |> List.foldl Utils.addHand model.playerHand
+
+        selectedHand =
+            List.repeat (List.length model.selectedHand) Nothing
+
+        turn =
+            Model.Opponent
+    in
+    ( { model
+        | playerHand = playerHand
+        , selectedHand = selectedHand
+        , turn = turn
+      }
+    , Cmd.batch
+        [ Nonempty.sample model.ranks
+            |> Random.list model.cardsDraw
+            |> Random.generate Msg.DrawCardsPlayer
+        , turnOpponent model
+        ]
+    )
+
+
+updatePressPlay : Model -> ( Model, Cmd Msg )
+updatePressPlay model =
+    let
+        cards =
+            model.selectedHand
+                |> List.filterMap identity
+
+        lengthCards =
+            List.length cards
+
+        numberCards =
+            List.sum cards
+
+        maybeNumberField =
+            model.field
+                |> List.Extra.getAt model.fieldIndex
+                |> Maybe.andThen identity
+    in
+    case maybeNumberField of
+        Just numberField ->
+            if lengthCards > 0 && modBy numberField numberCards == 0 then
+                let
+                    field =
+                        List.map Just (List.sort cards)
+                            ++ List.repeat (model.fieldLength - lengthCards) Nothing
+
+                    playerHand =
+                        Utils.clearHand model.playerHand
+
+                    selectedHand =
+                        List.repeat (List.length model.selectedHand) Nothing
+
+                    turn =
+                        Model.Opponent
+                in
+                ( { model
+                    | field = field
+                    , fieldIndex = fieldIndex cards
+                    , playerHand = playerHand
+                    , selectedHand = selectedHand
+                    , turn = turn
+                  }
+                , turnOpponent model
+                )
+
+            else
+                ( model, Cmd.none )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+updateTurnOpponent : Model -> ( Model, Cmd Msg )
+updateTurnOpponent model =
+    let
+        maybeRank =
+            List.Extra.getAt model.fieldIndex model.field
+                |> Maybe.andThen identity
+    in
+    case maybeRank of
+        Just rank ->
+            ( model
+            , generatorOpponentCards model rank
+                |> Random.generate Msg.PlayCardsOpponent
             )
 
         _ ->
             ( model, Cmd.none )
+
+
+updatePlayCardsOpponent : Model -> Maybe (List Int) -> ( Model, Cmd Msg )
+updatePlayCardsOpponent model maybeCards =
+    case maybeCards of
+        Just cards ->
+            let
+                field =
+                    List.map Just (List.sort cards)
+                        ++ List.repeat (model.fieldLength - List.length cards) Nothing
+
+                opponentHand =
+                    cards
+                        |> List.foldl Utils.takeHand model.opponentHand
+                        |> Utils.clearHand
+
+                turn =
+                    Model.Player
+            in
+            ( { model
+                | field = field
+                , opponentHand = opponentHand
+                , turn = turn
+              }
+            , Cmd.none
+            )
+
+        Nothing ->
+            let
+                turn =
+                    Model.Player
+            in
+            ( { model | turn = turn }
+            , Nonempty.sample model.ranks
+                |> Random.list 1
+                |> Random.generate DrawCardsOpponent
+            )
+
+
+fieldIndex : List Int -> Int
+fieldIndex _ =
+    0
+
+
+turnOpponent : Model -> Cmd Msg
+turnOpponent model =
+    Process.sleep model.turnOpponentSleep
+        |> Task.perform (\_ -> Msg.TurnOpponent)
+
+
+generatorOpponentCards : Model -> Int -> Random.Generator (Maybe (List Int))
+generatorOpponentCards model rank =
+    case listOpponentCards model rank of
+        x :: xs ->
+            Nonempty x xs
+                |> Nonempty.map Just
+                |> Nonempty.sample
+
+        _ ->
+            Random.constant Nothing
+
+
+listOpponentCards : Model -> Int -> List (List Int)
+listOpponentCards model rank =
+    List.range 1 model.fieldLength
+        |> List.concatMap
+            (\length_ ->
+                cartesianListCards model.opponentHand length_
+                    |> filterCards model.opponentHand
+            )
+        |> List.filter
+            (\cards ->
+                modBy rank (List.sum cards) == 0
+            )
+        |> List.filter
+            (\cards ->
+                let
+                    maybeRank =
+                        List.Extra.getAt (fieldIndex cards) cards
+                in
+                case maybeRank of
+                    Just rank_ ->
+                        if Utils.lengthHand model.opponentHand > List.length cards && Utils.lengthHand model.playerHand <= model.fieldLength then
+                            modBy rank_ (Utils.sumHand model.playerHand) /= 0
+
+                        else
+                            True
+
+                    Nothing ->
+                        False
+            )
+
+
+filterCards : Model.Hand -> List (List Int) -> List (List Int)
+filterCards hand listCards =
+    listCards
+        |> List.filter
+            (\cards ->
+                cards
+                    |> List.foldl Utils.addHand Dict.empty
+                    |> Utils.containHand hand
+            )
+
+
+cartesianListCards : Model.Hand -> Int -> List (List Int)
+cartesianListCards hand length =
+    if length == 0 then
+        [ [] ]
+
+    else
+        Dict.keys hand
+            |> List.concatMap
+                (\rank ->
+                    cartesianListCards hand (length - 1)
+                        |> List.map (\listCards -> rank :: listCards)
+                )
