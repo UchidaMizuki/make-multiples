@@ -37,6 +37,7 @@ initModel =
     , cardsPlayerInit = 7
     , cardsOpponentInit = 5
     , cardsDraw = 1
+    , winner = Nothing
     , view = initModelView
     }
 
@@ -95,7 +96,7 @@ initModelView =
     , gamePlayerButtonRounded = 0.25
     , gamePlayerButtonFontSize = 1
     , gameHandSpacing = 0.5
-    , gameCardBorderWidth = 0.05
+    , gameCardBorderWidth = 0.1
     , gameCardWidth = 2
     , gameCardHeight = 3
     , gameCardRounded = 0.25

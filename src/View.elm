@@ -81,7 +81,15 @@ viewGameInfo model =
             , Element.centerY
             ]
         <|
-            Element.text "× n ="
+            case model.winner of
+                Just Model.Player ->
+                    Element.text "You win!"
+
+                Just Model.Opponent ->
+                    Element.text "You lose!"
+
+                Nothing ->
+                    Element.text "× n ="
 
 
 viewGameSelectedHand : Model -> Element Msg
@@ -130,11 +138,11 @@ viewGamePlayerButton model =
             , Background.color <| Element.fromRgb255 model.view.color4
             ]
             { onPress =
-                if model.turn /= Model.Player then
-                    Nothing
+                if model.turn == Model.Player && Maybe.Extra.isNothing model.winner then
+                    Just Msg.PressPass
 
                 else
-                    Just Msg.PressPass
+                    Nothing
             , label =
                 Element.el
                     [ Element.centerX
@@ -151,11 +159,11 @@ viewGamePlayerButton model =
             , Background.color <| Element.fromRgb255 model.view.color5
             ]
             { onPress =
-                if model.turn /= Model.Player then
-                    Nothing
+                if model.turn == Model.Player && Maybe.Extra.isNothing model.winner then
+                    Just Msg.PressPlay
 
                 else
-                    Just Msg.PressPlay
+                    Nothing
             , label =
                 Element.el
                     [ Element.centerX
@@ -281,22 +289,22 @@ viewGameCard model gameCard maybeRank cards =
         PlayerHandCard ->
             Input.button attributes
                 { onPress =
-                    if model.turn /= Model.Player || cards <= 0 || List.all Maybe.Extra.isJust model.selectedHand then
-                        Nothing
+                    if model.turn == Model.Player && cards > 0 && List.any Maybe.Extra.isNothing model.selectedHand && Maybe.Extra.isNothing model.winner then
+                        Maybe.map Msg.SelectCard maybeRank
 
                     else
-                        Maybe.map Msg.SelectCard maybeRank
+                        Nothing
                 , label = label
                 }
 
         SelectedHandCard index ->
             Input.button attributes
                 { onPress =
-                    if model.turn /= Model.Player then
-                        Nothing
+                    if model.turn == Model.Player && Maybe.Extra.isNothing model.winner then
+                        Maybe.map (Msg.DeselectCard index) maybeRank
 
                     else
-                        Maybe.map (Msg.DeselectCard index) maybeRank
+                        Nothing
                 , label = label
                 }
 

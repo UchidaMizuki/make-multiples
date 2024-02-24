@@ -217,6 +217,13 @@ updatePressPlay model =
 
                     turn =
                         Model.Opponent
+
+                    winner =
+                        if Utils.lengthHand playerHand == 0 then
+                            Just Model.Player
+
+                        else
+                            Nothing
                 in
                 ( { model
                     | field = field
@@ -224,8 +231,14 @@ updatePressPlay model =
                     , playerHand = playerHand
                     , selectedHand = selectedHand
                     , turn = turn
+                    , winner = winner
                   }
-                , turnOpponent model
+                , case winner of
+                    Just _ ->
+                        Cmd.none
+
+                    Nothing ->
+                        turnOpponent model
                 )
 
             else
@@ -269,11 +282,20 @@ updatePlayCardsOpponent model maybeCards =
 
                 turn =
                     Model.Player
+
+                winner =
+                    if Utils.lengthHand opponentHand == 0 then
+                        Just Model.Opponent
+
+                    else
+                        Nothing
             in
             ( { model
                 | field = field
+                , fieldIndex = fieldIndex cards
                 , opponentHand = opponentHand
                 , turn = turn
+                , winner = winner
               }
             , Cmd.none
             )
@@ -291,8 +313,8 @@ updatePlayCardsOpponent model maybeCards =
 
 
 fieldIndex : List Int -> Int
-fieldIndex _ =
-    0
+fieldIndex cards =
+    List.length cards - 1
 
 
 turnOpponent : Model -> Cmd Msg
@@ -318,7 +340,7 @@ listOpponentCards model rank =
     List.range 1 model.fieldLength
         |> List.concatMap
             (\length_ ->
-                cartesianListCards model.opponentHand length_
+                cartesianListCards (Dict.keys model.opponentHand) length_
                     |> filterCards model.opponentHand
             )
         |> List.filter
@@ -342,6 +364,17 @@ listOpponentCards model rank =
                     Nothing ->
                         False
             )
+        |> maximumCards
+
+
+maximumCards : List (List Int) -> List (List Int)
+maximumCards listCards =
+    case List.maximum (List.map List.length listCards) of
+        Just length ->
+            List.filter (\cards -> List.length cards == length) listCards
+
+        Nothing ->
+            []
 
 
 filterCards : Model.Hand -> List (List Int) -> List (List Int)
@@ -355,15 +388,15 @@ filterCards hand listCards =
             )
 
 
-cartesianListCards : Model.Hand -> Int -> List (List Int)
-cartesianListCards hand length =
+cartesianListCards : List Int -> Int -> List (List Int)
+cartesianListCards keys length =
     if length == 0 then
         [ [] ]
 
     else
-        Dict.keys hand
+        keys
             |> List.concatMap
                 (\rank ->
-                    cartesianListCards hand (length - 1)
+                    cartesianListCards (List.filter (\key -> key >= rank) keys) (length - 1)
                         |> List.map (\listCards -> rank :: listCards)
                 )

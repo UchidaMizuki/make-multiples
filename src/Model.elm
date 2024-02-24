@@ -18,6 +18,7 @@ type alias Model =
     , cardsPlayerInit : Int
     , cardsOpponentInit : Int
     , cardsDraw : Int
+    , winner : Maybe Turn
     , view : View
     }
 

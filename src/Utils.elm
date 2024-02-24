@@ -42,9 +42,9 @@ clearHand hand =
 containHand : Model.Hand -> Model.Hand -> Bool
 containHand hand1 hand2 =
     Dict.merge
-        (\_ _ result -> result)
-        (\_ a b result -> a >= b && result)
-        (\_ _ result -> result)
+        (\_ _ result -> result && True)
+        (\_ a b result -> result && a >= b)
+        (\_ _ result -> result && False)
         hand1
         hand2
         True

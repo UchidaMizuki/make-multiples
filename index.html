@@ -5550,7 +5550,7 @@ var $author$project$Init$initModelView = function () {
 		color3: {alpha: 1, blue: 202, green: 191, red: 187},
 		color4: {alpha: 1, blue: 100, green: 84, red: 73},
 		color5: {alpha: 1, blue: 72, green: 72, red: 208},
-		gameCardBorderWidth: 0.05,
+		gameCardBorderWidth: 0.1,
 		gameCardFontSize: 1,
 		gameCardHeight: 3,
 		gameCardNumberFontSize: 0.625,
@@ -5604,7 +5604,8 @@ var $author$project$Init$initModel = {
 	selectedHand: A2($elm$core$List$repeat, $author$project$Init$initModelFieldLength, $elm$core$Maybe$Nothing),
 	turn: $author$project$Model$Player,
 	turnOpponentSleep: 1000,
-	view: $author$project$Init$initModelView
+	view: $author$project$Init$initModelView,
+	winner: $elm$core$Maybe$Nothing
 };
 var $author$project$Msg$Resize = F2(
 	function (a, b) {
@@ -6698,6 +6699,7 @@ var $author$project$Update$updateDrawCardsPlayer = F2(
 				{playerHand: playerHand}),
 			$elm$core$Platform$Cmd$none);
 	});
+var $author$project$Model$Opponent = {$: 'Opponent'};
 var $elm$core$Dict$filter = F2(
 	function (isGood, dict) {
 		return A3(
@@ -6717,6 +6719,26 @@ var $author$project$Utils$clearHand = function (hand) {
 				return number > 0;
 			}),
 		hand);
+};
+var $author$project$Update$fieldIndex = function (cards) {
+	return $elm$core$List$length(cards) - 1;
+};
+var $elm$core$List$sum = function (numbers) {
+	return A3($elm$core$List$foldl, $elm$core$Basics$add, 0, numbers);
+};
+var $elm$core$Dict$values = function (dict) {
+	return A3(
+		$elm$core$Dict$foldr,
+		F3(
+			function (key, value, valueList) {
+				return A2($elm$core$List$cons, value, valueList);
+			}),
+		_List_Nil,
+		dict);
+};
+var $author$project$Utils$lengthHand = function (hand) {
+	return $elm$core$List$sum(
+		$elm$core$Dict$values(hand));
 };
 var $elm$core$List$sortBy = _List_sortBy;
 var $elm$core$List$sort = function (xs) {
@@ -6744,6 +6766,7 @@ var $author$project$Update$updatePlayCardsOpponent = F2(
 			var turn = $author$project$Model$Player;
 			var opponentHand = $author$project$Utils$clearHand(
 				A3($elm$core$List$foldl, $author$project$Utils$takeHand, model.opponentHand, cards));
+			var winner = (!$author$project$Utils$lengthHand(opponentHand)) ? $elm$core$Maybe$Just($author$project$Model$Opponent) : $elm$core$Maybe$Nothing;
 			var field = _Utils_ap(
 				A2(
 					$elm$core$List$map,
@@ -6756,7 +6779,13 @@ var $author$project$Update$updatePlayCardsOpponent = F2(
 			return _Utils_Tuple2(
 				_Utils_update(
 					model,
-					{field: field, opponentHand: opponentHand, turn: turn}),
+					{
+						field: field,
+						fieldIndex: $author$project$Update$fieldIndex(cards),
+						opponentHand: opponentHand,
+						turn: turn,
+						winner: winner
+					}),
 				$elm$core$Platform$Cmd$none);
 		} else {
 			var turn = $author$project$Model$Player;
@@ -6773,7 +6802,6 @@ var $author$project$Update$updatePlayCardsOpponent = F2(
 						$mgold$elm_nonempty_list$List$Nonempty$sample(model.ranks))));
 		}
 	});
-var $author$project$Model$Opponent = {$: 'Opponent'};
 var $author$project$Msg$TurnOpponent = {$: 'TurnOpponent'};
 var $elm$core$Process$sleep = _Process_sleep;
 var $author$project$Update$turnOpponent = function (model) {
@@ -6821,9 +6849,6 @@ var $elm$core$Maybe$andThen = F2(
 			return $elm$core$Maybe$Nothing;
 		}
 	});
-var $author$project$Update$fieldIndex = function (_v0) {
-	return 0;
-};
 var $elm$core$List$head = function (list) {
 	if (list.b) {
 		var x = list.a;
@@ -6838,9 +6863,6 @@ var $elm_community$list_extra$List$Extra$getAt = F2(
 		return (idx < 0) ? $elm$core$Maybe$Nothing : $elm$core$List$head(
 			A2($elm$core$List$drop, idx, xs));
 	});
-var $elm$core$List$sum = function (numbers) {
-	return A3($elm$core$List$foldl, $elm$core$Basics$add, 0, numbers);
-};
 var $author$project$Update$updatePressPlay = function (model) {
 	var maybeNumberField = A2(
 		$elm$core$Maybe$andThen,
@@ -6858,6 +6880,7 @@ var $author$project$Update$updatePressPlay = function (model) {
 				$elm$core$List$length(model.selectedHand),
 				$elm$core$Maybe$Nothing);
 			var playerHand = $author$project$Utils$clearHand(model.playerHand);
+			var winner = (!$author$project$Utils$lengthHand(playerHand)) ? $elm$core$Maybe$Just($author$project$Model$Player) : $elm$core$Maybe$Nothing;
 			var field = _Utils_ap(
 				A2(
 					$elm$core$List$map,
@@ -6872,9 +6895,16 @@ var $author$project$Update$updatePressPlay = function (model) {
 						fieldIndex: $author$project$Update$fieldIndex(cards),
 						playerHand: playerHand,
 						selectedHand: selectedHand,
-						turn: turn
+						turn: turn,
+						winner: winner
 					}),
-				$author$project$Update$turnOpponent(model));
+				function () {
+					if (winner.$ === 'Just') {
+						return $elm$core$Platform$Cmd$none;
+					} else {
+						return $author$project$Update$turnOpponent(model);
+					}
+				}());
 		} else {
 			return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 		}
@@ -6996,21 +7026,6 @@ var $elm$core$List$concatMap = F2(
 		return $elm$core$List$concat(
 			A2($elm$core$List$map, f, list));
 	});
-var $author$project$Update$cartesianListCards = F2(
-	function (hand, length) {
-		return (!length) ? _List_fromArray(
-			[_List_Nil]) : A2(
-			$elm$core$List$concatMap,
-			function (rank) {
-				return A2(
-					$elm$core$List$map,
-					function (listCards) {
-						return A2($elm$core$List$cons, rank, listCards);
-					},
-					A2($author$project$Update$cartesianListCards, hand, length - 1));
-			},
-			$elm$core$Dict$keys(hand));
-	});
 var $elm$core$List$filter = F2(
 	function (isGood, list) {
 		return A3(
@@ -7023,21 +7038,44 @@ var $elm$core$List$filter = F2(
 			list);
 	});
 var $elm$core$Basics$ge = _Utils_ge;
+var $author$project$Update$cartesianListCards = F2(
+	function (keys, length) {
+		return (!length) ? _List_fromArray(
+			[_List_Nil]) : A2(
+			$elm$core$List$concatMap,
+			function (rank) {
+				return A2(
+					$elm$core$List$map,
+					function (listCards) {
+						return A2($elm$core$List$cons, rank, listCards);
+					},
+					A2(
+						$author$project$Update$cartesianListCards,
+						A2(
+							$elm$core$List$filter,
+							function (key) {
+								return _Utils_cmp(key, rank) > -1;
+							},
+							keys),
+						length - 1));
+			},
+			keys);
+	});
 var $author$project$Utils$containHand = F2(
 	function (hand1, hand2) {
 		return A6(
 			$elm$core$Dict$merge,
 			F3(
 				function (_v0, _v1, result) {
-					return result;
+					return result && true;
 				}),
 			F4(
 				function (_v2, a, b, result) {
-					return (_Utils_cmp(a, b) > -1) && result;
+					return result && (_Utils_cmp(a, b) > -1);
 				}),
 			F3(
 				function (_v3, _v4, result) {
-					return result;
+					return result && false;
 				}),
 			hand1,
 			hand2,
@@ -7055,19 +7093,32 @@ var $author$project$Update$filterCards = F2(
 			},
 			listCards);
 	});
-var $elm$core$Dict$values = function (dict) {
-	return A3(
-		$elm$core$Dict$foldr,
-		F3(
-			function (key, value, valueList) {
-				return A2($elm$core$List$cons, value, valueList);
-			}),
-		_List_Nil,
-		dict);
+var $elm$core$List$maximum = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(
+			A3($elm$core$List$foldl, $elm$core$Basics$max, x, xs));
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
 };
-var $author$project$Utils$lengthHand = function (hand) {
-	return $elm$core$List$sum(
-		$elm$core$Dict$values(hand));
+var $author$project$Update$maximumCards = function (listCards) {
+	var _v0 = $elm$core$List$maximum(
+		A2($elm$core$List$map, $elm$core$List$length, listCards));
+	if (_v0.$ === 'Just') {
+		var length = _v0.a;
+		return A2(
+			$elm$core$List$filter,
+			function (cards) {
+				return _Utils_eq(
+					$elm$core$List$length(cards),
+					length);
+			},
+			listCards);
+	} else {
+		return _List_Nil;
+	}
 };
 var $elm$core$Basics$neq = _Utils_notEqual;
 var $author$project$Utils$sumHand = function (hand) {
@@ -7082,44 +7133,48 @@ var $author$project$Utils$sumHand = function (hand) {
 };
 var $author$project$Update$listOpponentCards = F2(
 	function (model, rank) {
-		return A2(
-			$elm$core$List$filter,
-			function (cards) {
-				var maybeRank = A2(
-					$elm_community$list_extra$List$Extra$getAt,
-					$author$project$Update$fieldIndex(cards),
-					cards);
-				if (maybeRank.$ === 'Just') {
-					var rank_ = maybeRank.a;
-					return ((_Utils_cmp(
-						$author$project$Utils$lengthHand(model.opponentHand),
-						$elm$core$List$length(cards)) > 0) && (_Utils_cmp(
-						$author$project$Utils$lengthHand(model.playerHand),
-						model.fieldLength) < 1)) ? (!(!A2(
-						$elm$core$Basics$modBy,
-						rank_,
-						$author$project$Utils$sumHand(model.playerHand)))) : true;
-				} else {
-					return false;
-				}
-			},
+		return $author$project$Update$maximumCards(
 			A2(
 				$elm$core$List$filter,
 				function (cards) {
-					return !A2(
-						$elm$core$Basics$modBy,
-						rank,
-						$elm$core$List$sum(cards));
+					var maybeRank = A2(
+						$elm_community$list_extra$List$Extra$getAt,
+						$author$project$Update$fieldIndex(cards),
+						cards);
+					if (maybeRank.$ === 'Just') {
+						var rank_ = maybeRank.a;
+						return ((_Utils_cmp(
+							$author$project$Utils$lengthHand(model.opponentHand),
+							$elm$core$List$length(cards)) > 0) && (_Utils_cmp(
+							$author$project$Utils$lengthHand(model.playerHand),
+							model.fieldLength) < 1)) ? (!(!A2(
+							$elm$core$Basics$modBy,
+							rank_,
+							$author$project$Utils$sumHand(model.playerHand)))) : true;
+					} else {
+						return false;
+					}
 				},
 				A2(
-					$elm$core$List$concatMap,
-					function (length_) {
-						return A2(
-							$author$project$Update$filterCards,
-							model.opponentHand,
-							A2($author$project$Update$cartesianListCards, model.opponentHand, length_));
+					$elm$core$List$filter,
+					function (cards) {
+						return !A2(
+							$elm$core$Basics$modBy,
+							rank,
+							$elm$core$List$sum(cards));
 					},
-					A2($elm$core$List$range, 1, model.fieldLength))));
+					A2(
+						$elm$core$List$concatMap,
+						function (length_) {
+							return A2(
+								$author$project$Update$filterCards,
+								model.opponentHand,
+								A2(
+									$author$project$Update$cartesianListCards,
+									$elm$core$Dict$keys(model.opponentHand),
+									length_));
+						},
+						A2($elm$core$List$range, 1, model.fieldLength)))));
 	});
 var $mgold$elm_nonempty_list$List$Nonempty$map = F2(
 	function (f, _v0) {
@@ -10569,16 +10624,6 @@ var $mdgriffith$elm_ui$Internal$Model$adjust = F3(
 	function (size, height, vertical) {
 		return {height: height / size, size: size, vertical: vertical};
 	});
-var $elm$core$List$maximum = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return $elm$core$Maybe$Just(
-			A3($elm$core$List$foldl, $elm$core$Basics$max, x, xs));
-	} else {
-		return $elm$core$Maybe$Nothing;
-	}
-};
 var $elm$core$List$minimum = function (list) {
 	if (list.b) {
 		var x = list.a;
@@ -13067,18 +13112,6 @@ var $author$project$Msg$DeselectCard = F2(
 var $author$project$Msg$SelectCard = function (a) {
 	return {$: 'SelectCard', a: a};
 };
-var $elm$core$Basics$composeL = F3(
-	function (g, f, x) {
-		return g(
-			f(x));
-	});
-var $elm$core$List$all = F2(
-	function (isOkay, list) {
-		return !A2(
-			$elm$core$List$any,
-			A2($elm$core$Basics$composeL, $elm$core$Basics$not, isOkay),
-			list);
-	});
 var $mdgriffith$elm_ui$Internal$Model$Button = {$: 'Button'};
 var $mdgriffith$elm_ui$Internal$Model$Describe = function (a) {
 	return {$: 'Describe', a: a};
@@ -13106,6 +13139,11 @@ var $mdgriffith$elm_ui$Element$Input$hasFocusStyle = function (attr) {
 var $mdgriffith$elm_ui$Element$Input$focusDefault = function (attrs) {
 	return A2($elm$core$List$any, $mdgriffith$elm_ui$Element$Input$hasFocusStyle, attrs) ? $mdgriffith$elm_ui$Internal$Model$NoAttribute : $mdgriffith$elm_ui$Internal$Model$htmlClass('focusable');
 };
+var $elm$core$Basics$composeL = F3(
+	function (g, f, x) {
+		return g(
+			f(x));
+	});
 var $elm$virtual_dom$VirtualDom$Normal = function (a) {
 	return {$: 'Normal', a: a};
 };
@@ -13269,13 +13307,6 @@ var $mdgriffith$elm_ui$Element$el = F2(
 					[child])));
 	});
 var $mdgriffith$elm_ui$Element$fillPortion = $mdgriffith$elm_ui$Internal$Model$Fill;
-var $elm_community$maybe_extra$Maybe$Extra$isJust = function (m) {
-	if (m.$ === 'Nothing') {
-		return false;
-	} else {
-		return true;
-	}
-};
 var $mdgriffith$elm_ui$Internal$Model$Empty = {$: 'Empty'};
 var $mdgriffith$elm_ui$Element$none = $mdgriffith$elm_ui$Internal$Model$Empty;
 var $mdgriffith$elm_ui$Element$Font$size = function (i) {
@@ -13423,7 +13454,7 @@ var $author$project$View$viewGameCard = F4(
 					attributes,
 					{
 						label: label,
-						onPress: ((!_Utils_eq(model.turn, $author$project$Model$Player)) || ((cards <= 0) || A2($elm$core$List$all, $elm_community$maybe_extra$Maybe$Extra$isJust, model.selectedHand))) ? $elm$core$Maybe$Nothing : A2($elm$core$Maybe$map, $author$project$Msg$SelectCard, maybeRank)
+						onPress: (_Utils_eq(model.turn, $author$project$Model$Player) && ((cards > 0) && (A2($elm$core$List$any, $elm_community$maybe_extra$Maybe$Extra$isNothing, model.selectedHand) && $elm_community$maybe_extra$Maybe$Extra$isNothing(model.winner)))) ? A2($elm$core$Maybe$map, $author$project$Msg$SelectCard, maybeRank) : $elm$core$Maybe$Nothing
 					});
 			case 'SelectedHandCard':
 				var index = gameCard.a;
@@ -13432,10 +13463,10 @@ var $author$project$View$viewGameCard = F4(
 					attributes,
 					{
 						label: label,
-						onPress: (!_Utils_eq(model.turn, $author$project$Model$Player)) ? $elm$core$Maybe$Nothing : A2(
+						onPress: (_Utils_eq(model.turn, $author$project$Model$Player) && $elm_community$maybe_extra$Maybe$Extra$isNothing(model.winner)) ? A2(
 							$elm$core$Maybe$map,
 							$author$project$Msg$DeselectCard(index),
-							maybeRank)
+							maybeRank) : $elm$core$Maybe$Nothing
 					});
 			default:
 				return A2($mdgriffith$elm_ui$Element$el, attributes, label);
@@ -13518,7 +13549,20 @@ var $author$project$View$viewGameInfo = function (model) {
 			$mdgriffith$elm_ui$Element$el,
 			_List_fromArray(
 				[$mdgriffith$elm_ui$Element$centerX, $mdgriffith$elm_ui$Element$centerY]),
-			$mdgriffith$elm_ui$Element$text('× n =')));
+			function () {
+				var _v0 = model.winner;
+				if (_v0.$ === 'Just') {
+					if (_v0.a.$ === 'Player') {
+						var _v1 = _v0.a;
+						return $mdgriffith$elm_ui$Element$text('You win!');
+					} else {
+						var _v2 = _v0.a;
+						return $mdgriffith$elm_ui$Element$text('You lose!');
+					}
+				} else {
+					return $mdgriffith$elm_ui$Element$text('× n =');
+				}
+			}()));
 };
 var $author$project$View$OpponentHandCard = {$: 'OpponentHandCard'};
 var $author$project$View$viewGameOpponentHand = function (model) {
@@ -13593,7 +13637,7 @@ var $author$project$View$viewGamePlayerButton = function (model) {
 						_List_fromArray(
 							[$mdgriffith$elm_ui$Element$centerX, $mdgriffith$elm_ui$Element$centerY]),
 						$mdgriffith$elm_ui$Element$text('Pass')),
-					onPress: (!_Utils_eq(model.turn, $author$project$Model$Player)) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just($author$project$Msg$PressPass)
+					onPress: (_Utils_eq(model.turn, $author$project$Model$Player) && $elm_community$maybe_extra$Maybe$Extra$isNothing(model.winner)) ? $elm$core$Maybe$Just($author$project$Msg$PressPass) : $elm$core$Maybe$Nothing
 				}),
 				A2(
 				$mdgriffith$elm_ui$Element$Input$button,
@@ -13615,7 +13659,7 @@ var $author$project$View$viewGamePlayerButton = function (model) {
 						_List_fromArray(
 							[$mdgriffith$elm_ui$Element$centerX, $mdgriffith$elm_ui$Element$centerY]),
 						$mdgriffith$elm_ui$Element$text('Play')),
-					onPress: (!_Utils_eq(model.turn, $author$project$Model$Player)) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just($author$project$Msg$PressPlay)
+					onPress: (_Utils_eq(model.turn, $author$project$Model$Player) && $elm_community$maybe_extra$Maybe$Extra$isNothing(model.winner)) ? $elm$core$Maybe$Just($author$project$Msg$PressPlay) : $elm$core$Maybe$Nothing
 				})
 			]));
 };
