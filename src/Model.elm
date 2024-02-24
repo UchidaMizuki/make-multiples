@@ -3,6 +3,7 @@ module Model exposing (..)
 import Dict exposing (Dict)
 import Element.Font as Font
 import List.Nonempty exposing (Nonempty)
+import Html exposing (footer)
 
 
 type alias Model =
@@ -59,6 +60,8 @@ type alias View =
     , gameCardRounded : Float
     , gameCardFontSize : Float
     , gameCardNumberFontSize : Float
+    , footerHeight : Float
+    , footerFontSize : Float
     , color1 : Color
     , color2 : Color
     , color3 : Color

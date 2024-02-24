@@ -102,6 +102,8 @@ initModelView =
     , gameCardRounded = 0.25
     , gameCardFontSize = 1
     , gameCardNumberFontSize = 0.625
+    , footerHeight = 1
+    , footerFontSize = 0.5
     , color1 = { red = 244, green = 244, blue = 242, alpha = 1 }
     , color2 = { red = 232, green = 232, blue = 232, alpha = 1 }
     , color3 = { red = 187, green = 191, blue = 202, alpha = 1 }

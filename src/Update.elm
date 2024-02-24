@@ -66,6 +66,7 @@ updateResize model w h =
                 , view.gamePlayerButtonHeight
                 , view.boxPadding * 2
                 , view.boxSpacing * 5
+                , view.footerHeight
                 ]
 
         boxZoom =

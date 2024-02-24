@@ -18,21 +18,27 @@ view model =
         [ Background.color <| Element.fromRgb255 model.view.color4 ]
     <|
         Element.column
-            [ Background.color <| Element.fromRgb255 model.view.color2
-            , Element.width <| Element.px <| boxZoom model model.view.boxWidth
-            , Element.centerX
-            , Element.centerY
-            , Element.padding <| boxZoom model model.view.boxPadding
-            , Element.spacing <| boxZoom model model.view.boxSpacing
-            , Border.rounded <| boxZoom model model.view.boxRounded
-            , Font.family [ model.view.gameFontFamily ]
+            [ Element.width <| Element.fill
+            , Element.height <| Element.fill
             ]
-            [ viewGameOpponentHand model
-            , viewGameField model
-            , viewGameInfo model
-            , viewGameSelectedHand model
-            , viewGamePlayerHand model
-            , viewGamePlayerButton model
+            [ Element.column
+                [ Background.color <| Element.fromRgb255 model.view.color2
+                , Element.width <| Element.px <| boxZoom model model.view.boxWidth
+                , Element.centerX
+                , Element.centerY
+                , Element.padding <| boxZoom model model.view.boxPadding
+                , Element.spacing <| boxZoom model model.view.boxSpacing
+                , Border.rounded <| boxZoom model model.view.boxRounded
+                , Font.family [ model.view.gameFontFamily ]
+                ]
+                [ viewGameOpponentHand model
+                , viewGameField model
+                , viewGameInfo model
+                , viewGameSelectedHand model
+                , viewGamePlayerHand model
+                , viewGamePlayerButton model
+                ]
+            , viewFooter model
             ]
 
 
@@ -174,6 +180,25 @@ viewGamePlayerButton model =
             }
         ]
 
+
+viewFooter : Model -> Element Msg
+viewFooter model =
+    Element.el
+        [ Element.width Element.fill
+        , Element.height <| Element.px <| boxZoom model model.view.footerHeight
+        , Element.centerX
+        , Element.centerY
+        , Font.size <| boxZoom model model.view.footerFontSize
+        , Font.color <| Element.fromRgb255 model.view.color3
+        ]
+    <|
+        Element.newTabLink
+            [ Element.centerX
+            , Element.centerY
+            ]
+            { url = "https://github.com/UchidaMizuki/make-multiples"
+            , label = Element.text "https://github.com/UchidaMizuki/make-multiples"
+            }
 
 viewGameCard : Model -> GameCard -> Maybe Int -> Int -> Element Msg
 viewGameCard model gameCard maybeRank cards =
